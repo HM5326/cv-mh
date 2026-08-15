@@ -1,16 +1,20 @@
-import React, { useState, useRef } from 'react'
-import { X, Send, CheckCircle2, MessageSquare, Loader2, Info } from 'lucide-react'
+import React, { useState } from 'react'
+import { X, Send, CheckCircle2, MessageSquare, Loader2, AlertTriangle, Mail } from 'lucide-react'
 import confetti from 'canvas-confetti'
+import { resumeData } from '../data/resumeData'
+
+const { email: fallbackEmail } = resumeData.personal
 
 export default function ContactModal({ isOpen, onClose }) {
   const [formData, setFormData] = useState({
     name: '',
     contact: '',
-    message: ''
+    message: '',
+    website: '' // honeypot anti-bot : invisible, doit rester vide
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const formRef = useRef(null)
+  const [error, setError] = useState(null)
 
   if (!isOpen) return null
 
@@ -19,77 +23,51 @@ export default function ContactModal({ isOpen, onClose }) {
     if (!formData.name || !formData.contact || !formData.message) return
 
     setIsSubmitting(true)
+    setError(null)
 
     try {
-      // 1. Tenter l'envoi AJAX vers l'API FormSubmit
-      const response = await fetch('https://formsubmit.co/ajax/mouliomh@yahoo.fr', {
+      const response = await fetch('/api/contact', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          _subject: `⚡ Prospect CV Web — ${formData.name}`,
-          _template: 'table',
-          _captcha: 'false',
-          Nom_Prospect: formData.name,
-          Coordonnees: formData.contact,
-          Message: formData.message
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
       })
 
-      const result = await response.json()
+      // On ne fait confiance qu'au statut HTTP renvoyé par notre propre serveur.
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        setError(data.error || "L'envoi a échoué. Réessaie ou écris-moi directement.")
+        return
+      }
 
-      // Si FormSubmit signale que l'activation est requise ou que AJAX échoue, déclencher le formulaire natif
-      if (result.message && (result.message.includes('Activation') || result.success === 'false')) {
-        console.log('Déclenchement du formulaire HTML natif pour activation FormSubmit...')
-        if (formRef.current) {
-          formRef.current.submit()
-        }
-      }
-    } catch (err) {
-      console.log('Erreur réseau / CORS. Fallback formulaire HTML natif...')
-      if (formRef.current) {
-        formRef.current.submit()
-      }
+      setSubmitted(true)
+      confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } })
+    } catch {
+      setError(
+        'Connexion impossible. Vérifie ta connexion internet, puis réessaie.'
+      )
     } finally {
       setIsSubmitting(false)
-      setSubmitted(true)
-      confetti({
-        particleCount: 120,
-        spread: 80,
-        origin: { y: 0.6 }
-      })
     }
   }
 
   const resetForm = () => {
     setSubmitted(false)
     setIsSubmitting(false)
-    setFormData({ name: '', contact: '', message: '' })
+    setError(null)
+    setFormData({ name: '', contact: '', message: '', website: '' })
     onClose()
   }
 
+  const mailtoHref = `mailto:${fallbackEmail}?subject=${encodeURIComponent(
+    `Contact CV Web — ${formData.name || ''}`.trim()
+  )}&body=${encodeURIComponent(
+    `Nom : ${formData.name}\nCoordonnées : ${formData.contact}\n\n${formData.message}`
+  )}`
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/80 backdrop-blur-md animate-in fade-in duration-300">
-      {/* Formulaire HTML natif de secours pour garantir 100% l'activation et l'envoi réel */}
-      <form 
-        ref={formRef}
-        action="https://formsubmit.co/mouliomh@yahoo.fr" 
-        method="POST" 
-        target="_blank"
-        className="hidden"
-      >
-        <input type="hidden" name="_subject" value={`⚡ Prospect CV Web — ${formData.name}`} />
-        <input type="hidden" name="_captcha" value="false" />
-        <input type="hidden" name="_template" value="table" />
-        <input type="hidden" name="Nom_Prospect" value={formData.name} />
-        <input type="hidden" name="Coordonnees" value={formData.contact} />
-        <input type="hidden" name="Message" value={formData.message} />
-      </form>
-
       <div className="bg-snow w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-ink/10 flex flex-col overflow-hidden text-graphite relative">
-        
+
         {/* Modal Header */}
         <div className="p-6 bg-ink text-white flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
@@ -101,7 +79,7 @@ export default function ContactModal({ isOpen, onClose }) {
                 Me Contacter
               </h3>
               <p className="text-xs font-mono text-coral">
-                Formulaire d'envoi d'email 100% fonctionnel
+                Réponse sous 24h ouvrées
               </p>
             </div>
           </div>
@@ -121,18 +99,11 @@ export default function ContactModal({ isOpen, onClose }) {
               <div className="w-16 h-16 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center border-2 border-green-500 animate-bounce">
                 <CheckCircle2 className="w-10 h-10" />
               </div>
-              <h4 className="text-2xl font-extrabold text-ink">Message Transmis !</h4>
+              <h4 className="text-2xl font-extrabold text-ink">Message Envoyé !</h4>
               <p className="text-sm font-sans text-graphite/90 max-w-sm leading-relaxed">
-                Le message de <strong>{formData.name}</strong> a été soumis vers <strong>mouliomh@yahoo.fr</strong>.
+                Merci <strong>{formData.name}</strong>, ton message est bien arrivé dans ma
+                boîte mail. Je te réponds sur <strong>{formData.contact}</strong> dès que possible.
               </p>
-
-              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-left text-xs text-graphite/90 flex items-start gap-3 mt-2">
-                <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="block text-amber-800 font-bold mb-1">💡 Activation FormSubmit :</strong>
-                  Si un nouvel onglet s'ouvre ou si vous recevez un email FormSubmit sur <strong>mouliomh@yahoo.fr</strong>, cliquez sur <em>"Activate Form"</em> (une seule fois). Une fois activé, tous les messages suivants arriveront directement dans votre boîte mail !
-                </div>
-              </div>
 
               <button
                 onClick={resetForm}
@@ -143,6 +114,26 @@ export default function ContactModal({ isOpen, onClose }) {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              {error && (
+                <div
+                  role="alert"
+                  className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-left text-xs text-graphite/90 flex items-start gap-3"
+                >
+                  <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block text-red-700 font-bold mb-1">Envoi impossible</strong>
+                    {error}
+                    <a
+                      href={mailtoHref}
+                      className="mt-2 inline-flex items-center gap-1.5 font-mono font-bold text-red-700 underline underline-offset-2"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      M'écrire directement à {fallbackEmail}
+                    </a>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-mono font-bold uppercase tracking-wider text-coral mb-1.5">
                   Votre Nom Complet *
@@ -150,6 +141,7 @@ export default function ContactModal({ isOpen, onClose }) {
                 <input
                   type="text"
                   required
+                  maxLength={120}
                   placeholder="ex: Jean Dupont"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -164,6 +156,7 @@ export default function ContactModal({ isOpen, onClose }) {
                 <input
                   type="text"
                   required
+                  maxLength={200}
                   placeholder="ex: client@entreprise.cm ou +237 6xx xx xx xx"
                   value={formData.contact}
                   onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
@@ -178,12 +171,25 @@ export default function ContactModal({ isOpen, onClose }) {
                 <textarea
                   required
                   rows={4}
+                  maxLength={5000}
                   placeholder="Décrivez votre besoin (Agent IA, Site Web Vibe Coding, Consulting...)"
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   className="w-full px-4 py-3 rounded-2xl bg-white border border-ink/10 text-sm font-sans focus:outline-none focus:border-coral transition-colors resize-none"
                 />
               </div>
+
+              {/* Honeypot : masqué aux humains, appâte les bots. Ne pas retirer. */}
+              <input
+                type="text"
+                name="website"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                value={formData.website}
+                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                className="absolute left-[-9999px] w-px h-px opacity-0"
+              />
 
               <button
                 type="submit"
@@ -198,7 +204,7 @@ export default function ContactModal({ isOpen, onClose }) {
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    <span>Envoyer à mouliomh@yahoo.fr</span>
+                    <span>Envoyer le message</span>
                   </>
                 )}
               </button>
