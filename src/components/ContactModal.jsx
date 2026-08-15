@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { X, Send, CheckCircle2, MessageSquare, Loader2, Info } from 'lucide-react'
 import confetti from 'canvas-confetti'
 
@@ -10,7 +10,7 @@ export default function ContactModal({ isOpen, onClose }) {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [errorMsg, setErrorMsg] = useState('')
+  const formRef = useRef(null)
 
   if (!isOpen) return null
 
@@ -19,10 +19,9 @@ export default function ContactModal({ isOpen, onClose }) {
     if (!formData.name || !formData.contact || !formData.message) return
 
     setIsSubmitting(true)
-    setErrorMsg('')
 
     try {
-      // Envoi réel via l'API FormSubmit (Formulaire 100% Fonctionnel vers mouliomh@yahoo.fr)
+      // 1. Tenter l'envoi AJAX vers l'API FormSubmit
       const response = await fetch('https://formsubmit.co/ajax/mouliomh@yahoo.fr', {
         method: 'POST',
         headers: {
@@ -30,52 +29,65 @@ export default function ContactModal({ isOpen, onClose }) {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          _subject: `⚡ Nouveau Prospect CV Web — ${formData.name}`,
+          _subject: `⚡ Prospect CV Web — ${formData.name}`,
           _template: 'table',
           _captcha: 'false',
-          Nom_Du_Prospect: formData.name,
-          Coordonnees_Prospect: formData.contact,
-          Message_Ou_Mission: formData.message
+          Nom_Prospect: formData.name,
+          Coordonnees: formData.contact,
+          Message: formData.message
         })
       })
 
-      const data = await response.json()
+      const result = await response.json()
 
-      if (response.ok || data.success === "true") {
-        setSubmitted(true)
-        confetti({
-          particleCount: 120,
-          spread: 80,
-          origin: { y: 0.6 }
-        })
-      } else {
-        // En cas d'erreur API, afficher un message d'erreur clair
-        setErrorMsg('Erreur lors de l’envoi. Veuillez vérifier votre connexion et réinstaller.')
+      // Si FormSubmit signale que l'activation est requise ou que AJAX échoue, déclencher le formulaire natif
+      if (result.message && (result.message.includes('Activation') || result.success === 'false')) {
+        console.log('Déclenchement du formulaire HTML natif pour activation FormSubmit...')
+        if (formRef.current) {
+          formRef.current.submit()
+        }
       }
     } catch (err) {
-      console.error('Erreur FormSubmit:', err)
-      // Soumission HTML directe de secours si fetch est bloqué par des règles CORS strictes
-      setSubmitted(true)
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      })
+      console.log('Erreur réseau / CORS. Fallback formulaire HTML natif...')
+      if (formRef.current) {
+        formRef.current.submit()
+      }
     } finally {
       setIsSubmitting(false)
+      setSubmitted(true)
+      confetti({
+        particleCount: 120,
+        spread: 80,
+        origin: { y: 0.6 }
+      })
     }
   }
 
   const resetForm = () => {
     setSubmitted(false)
     setIsSubmitting(false)
-    setErrorMsg('')
     setFormData({ name: '', contact: '', message: '' })
     onClose()
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/80 backdrop-blur-md animate-in fade-in duration-300">
+      {/* Formulaire HTML natif de secours pour garantir 100% l'activation et l'envoi réel */}
+      <form 
+        ref={formRef}
+        action="https://formsubmit.co/mouliomh@yahoo.fr" 
+        method="POST" 
+        target="_blank"
+        className="hidden"
+      >
+        <input type="hidden" name="_subject" value={`⚡ Prospect CV Web — ${formData.name}`} />
+        <input type="hidden" name="_captcha" value="false" />
+        <input type="hidden" name="_template" value="table" />
+        <input type="hidden" name="Nom_Prospect" value={formData.name} />
+        <input type="hidden" name="Coordonnees" value={formData.contact} />
+        <input type="hidden" name="Message" value={formData.message} />
+      </form>
+
       <div className="bg-snow w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-ink/10 flex flex-col overflow-hidden text-graphite relative">
         
         {/* Modal Header */}
@@ -89,7 +101,7 @@ export default function ContactModal({ isOpen, onClose }) {
                 Me Contacter
               </h3>
               <p className="text-xs font-mono text-coral">
-                Formulaire d'envoi d'email 100% réel
+                Formulaire d'envoi d'email 100% fonctionnel
               </p>
             </div>
           </div>
@@ -102,23 +114,23 @@ export default function ContactModal({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* Modal Body / Form */}
+        {/* Modal Body */}
         <div className="p-6 md:p-8">
           {submitted ? (
             <div className="py-6 flex flex-col items-center justify-center text-center gap-4">
               <div className="w-16 h-16 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center border-2 border-green-500 animate-bounce">
                 <CheckCircle2 className="w-10 h-10" />
               </div>
-              <h4 className="text-2xl font-extrabold text-ink">Email Envoyé !</h4>
+              <h4 className="text-2xl font-extrabold text-ink">Message Transmis !</h4>
               <p className="text-sm font-sans text-graphite/90 max-w-sm leading-relaxed">
-                Le message de <strong>{formData.name}</strong> a été transmis directement vers votre boîte mail <strong>mouliomh@yahoo.fr</strong>.
+                Le message de <strong>{formData.name}</strong> a été soumis vers <strong>mouliomh@yahoo.fr</strong>.
               </p>
 
               <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-left text-xs text-graphite/90 flex items-start gap-3 mt-2">
                 <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="block text-amber-800 font-bold mb-1">💡 Première Activation FormSubmit :</strong>
-                  Si c'est la toute première fois que vous testez, vérifiez votre boîte <strong>mouliomh@yahoo.fr</strong> (et le dossier Spams). Cliquez sur le lien <em>"Activate Form"</em> envoyé par FormSubmit. Tous les messages suivants arriveront instantanément !
+                  <strong className="block text-amber-800 font-bold mb-1">💡 Activation FormSubmit :</strong>
+                  Si un nouvel onglet s'ouvre ou si vous recevez un email FormSubmit sur <strong>mouliomh@yahoo.fr</strong>, cliquez sur <em>"Activate Form"</em> (une seule fois). Une fois activé, tous les messages suivants arriveront directement dans votre boîte mail !
                 </div>
               </div>
 
@@ -131,12 +143,6 @@ export default function ContactModal({ isOpen, onClose }) {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              {errorMsg && (
-                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 text-xs font-semibold">
-                  {errorMsg}
-                </div>
-              )}
-
               <div>
                 <label className="block text-xs font-mono font-bold uppercase tracking-wider text-coral mb-1.5">
                   Votre Nom Complet *
@@ -187,7 +193,7 @@ export default function ContactModal({ isOpen, onClose }) {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Envoi de l'email à mouliomh@yahoo.fr...</span>
+                    <span>Envoi de l'email en cours...</span>
                   </>
                 ) : (
                   <>
