@@ -8,7 +8,9 @@ globalThis.fetch = async (url, opts) => {
   return { ok: true, status: 200, text: async () => '' }
 }
 
-const handler = (await import('../api/contact.js')).default
+const contactMod = await import('../api/contact.js')
+const handler = contactMod.default
+const { clientIp } = contactMod
 const { checkRateLimit } = await import('../lib/rateLimit.js')
 
 // Faux limiteur respectant le contrat de @upstash/ratelimit : .limit(key)
@@ -102,6 +104,40 @@ console.log('\n--- Limitation par IP (3 / 10 min) ---')
   const other = mockRes()
   await handler(reqFor({ 'x-forwarded-for': '198.51.100.2' }), other, L)
   check('une autre IP reste acceptée', other.statusCode === 200, `→ ${other.statusCode}`)
+}
+
+// ── Détermination de l'IP (anti-usurpation) ─────────────────────────
+console.log('\n--- Détermination de l’IP source ---')
+{
+  const ipOf = (headers) => clientIp({ headers })
+
+  check('x-vercel-forwarded-for prioritaire',
+    ipOf({ 'x-vercel-forwarded-for': '9.9.9.9', 'x-forwarded-for': '1.2.3.4', 'x-real-ip': '8.8.8.8' }) === '9.9.9.9')
+
+  check('x-real-ip en second',
+    ipOf({ 'x-real-ip': '8.8.8.8', 'x-forwarded-for': '1.2.3.4' }) === '8.8.8.8')
+
+  check('x-forwarded-for : dernière entrée, pas la première',
+    ipOf({ 'x-forwarded-for': '1.2.3.4, 203.0.113.7' }) === '203.0.113.7')
+
+  check('usurpation par faux x-forwarded-for neutralisée',
+    ipOf({ 'x-forwarded-for': 'evil-1, evil-2, 203.0.113.7' }) === '203.0.113.7')
+
+  check('en-tête absent → clé de repli', ipOf({}) === 'inconnue')
+
+  // Un attaquant qui fait tourner un faux en-tête doit rester sur la même
+  // clé de compteur, donc être bloqué comme n'importe quelle IP unique.
+  const L = limiters()
+  sent = []
+  const spoofed = []
+  for (let i = 0; i < 5; i++) {
+    const res = mockRes()
+    await handler(reqFor({ 'x-forwarded-for': `10.66.66.${i}, 203.0.113.7` }), res, L)
+    spoofed.push(res.statusCode)
+  }
+  check('rotation d’un faux x-forwarded-for : bloqué quand même',
+    spoofed.slice(3).every((s) => s === 429), `[${spoofed.join(', ')}]`)
+  check('aucun email au-delà de la limite malgré l’usurpation', sent.length === 3, `${sent.length} emails`)
 }
 
 // ── Plafond global ──────────────────────────────────────────────────

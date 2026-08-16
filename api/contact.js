@@ -21,8 +21,31 @@ const sanitizeHeader = (str) => String(str).replace(/[\r\n]+/g, ' ').trim()
 
 const isEmail = (str) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(str).trim())
 
-const clientIp = (req) =>
-  String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'inconnue'
+// Détermination de l'IP source pour la limitation de débit.
+//
+// `x-forwarded-for` est partiellement contrôlable par l'appelant : s'il en
+// envoie un, l'edge ajoute la vraie IP APRÈS la valeur fournie. Prendre la
+// première entrée permettrait donc de changer de compteur à chaque requête
+// en faisant tourner un faux en-tête, ce qui annulerait la limite par IP.
+//
+// On préfère donc les en-têtes posés par l'edge Vercel, qu'un client ne peut
+// pas imposer, et on ne retombe sur `x-forwarded-for` qu'en dernier recours
+// — en prenant la DERNIÈRE entrée, celle ajoutée par le hop le plus proche.
+export const clientIp = (req) => {
+  const h = req.headers || {}
+
+  const vercel = h['x-vercel-forwarded-for']
+  if (vercel) return String(vercel).split(',')[0].trim()
+
+  if (h['x-real-ip']) return String(h['x-real-ip']).trim()
+
+  const chain = String(h['x-forwarded-for'] || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  return chain.at(-1) || 'inconnue'
+}
 
 // L'endpoint n'est destiné qu'au formulaire du site lui-même.
 // On compare l'Origin annoncée à l'hôte servi : ça couvre la production,
