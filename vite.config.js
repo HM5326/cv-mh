@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    host: true
+    // Écoute sur localhost par défaut. `host: true` exposerait le serveur
+    // de dev à tout le réseau local (wifi partagé, coworking).
+    // Pour tester depuis un téléphone : EXPOSE_LAN=1 npm run dev
+    host: process.env.EXPOSE_LAN === '1'
   }
 })

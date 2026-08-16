@@ -10,7 +10,10 @@ export default function ContactModal({ isOpen, onClose }) {
     name: '',
     contact: '',
     message: '',
-    website: '' // honeypot anti-bot : invisible, doit rester vide
+    // Honeypot anti-bot : invisible, doit rester vide. Nom volontairement
+    // opaque — un champ nommé "website" se fait remplir par les autofills,
+    // ce qui ferait silencieusement jeter un message légitime.
+    contact_ref: ''
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -54,7 +57,7 @@ export default function ContactModal({ isOpen, onClose }) {
     setSubmitted(false)
     setIsSubmitting(false)
     setError(null)
-    setFormData({ name: '', contact: '', message: '', website: '' })
+    setFormData({ name: '', contact: '', message: '', contact_ref: '' })
     onClose()
   }
 
@@ -182,12 +185,12 @@ export default function ContactModal({ isOpen, onClose }) {
               {/* Honeypot : masqué aux humains, appâte les bots. Ne pas retirer. */}
               <input
                 type="text"
-                name="website"
+                name="contact_ref"
                 tabIndex={-1}
                 autoComplete="off"
                 aria-hidden="true"
-                value={formData.website}
-                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                value={formData.contact_ref}
+                onChange={(e) => setFormData({ ...formData, contact_ref: e.target.value })}
                 className="absolute left-[-9999px] w-px h-px opacity-0"
               />
 
