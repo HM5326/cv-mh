@@ -2,6 +2,7 @@ import React from 'react'
 import { resumeData } from '../data/resumeData'
 import { X, Download, Phone, Mail, MapPin } from 'lucide-react'
 import confetti from 'canvas-confetti'
+import { escapeHtml as esc } from '../../lib/escapeHtml'
 
 export default function ResumeModal({ isOpen, onClose }) {
   if (!isOpen) return null
@@ -114,28 +115,28 @@ export default function ResumeModal({ isOpen, onClose }) {
       <body>
         <div class="header">
           <div>
-            <h1 class="name">${resumeData.personal.name}</h1>
-            <div class="title">${resumeData.personal.title}</div>
+            <h1 class="name">${esc(resumeData.personal.name)}</h1>
+            <div class="title">${esc(resumeData.personal.title)}</div>
           </div>
           <div class="contact">
-            <div>📍 ${resumeData.personal.location}</div>
-            <div>✉️ ${resumeData.personal.email}</div>
-            <div>📞 ${resumeData.personal.phone}</div>
+            <div>📍 ${esc(resumeData.personal.location)}</div>
+            <div>✉️ ${esc(resumeData.personal.email)}</div>
+            <div>📞 ${esc(resumeData.personal.phone)}</div>
           </div>
         </div>
 
         <div class="section-title">Profil & Manifeste</div>
-        <div class="desc">${resumeData.about.story[0]}</div>
+        <div class="desc">${esc(resumeData.about.story[0])}</div>
 
         <div class="section-title">Expériences Professionnelles Phares</div>
         ${resumeData.experiences.map(exp => `
           <div class="exp-item">
             <div class="exp-header">
-              <span>${exp.role}</span>
-              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #E8634A;">${exp.period}</span>
+              <span>${esc(exp.role)}</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #E8634A;">${esc(exp.period)}</span>
             </div>
-            <div class="company">${exp.company} — ${exp.location}</div>
-            <div class="desc">${exp.description}</div>
+            <div class="company">${esc(exp.company)} — ${esc(exp.location)}</div>
+            <div class="desc">${esc(exp.description)}</div>
           </div>
         `).join('')}
 
@@ -143,8 +144,8 @@ export default function ResumeModal({ isOpen, onClose }) {
         <div class="skills-grid">
           ${resumeData.skills.map(s => `
             <div class="skill-badge">
-              <strong>${s.name} (${s.percentage}%)</strong><br>
-              <span style="font-size:10px; color:#5A5A60;">${s.description}</span>
+              <strong>${esc(s.name)} (${esc(s.percentage)}%)</strong><br>
+              <span style="font-size:10px; color:#5A5A60;">${esc(s.description)}</span>
             </div>
           `).join('')}
         </div>
@@ -152,21 +153,28 @@ export default function ResumeModal({ isOpen, onClose }) {
         <div class="section-title">Formation & Diplômes</div>
         ${resumeData.education.map(e => `
           <div style="margin-bottom:10px; font-size:12px;">
-            <strong>${e.degree}</strong> (${e.year}) — <em>${e.institution}</em>
+            <strong>${esc(e.degree)}</strong> (${esc(e.year)}) — <em>${esc(e.institution)}</em>
           </div>
         `).join('')}
-
-        <script>
-          window.onload = function() {
-            window.print();
-          }
-        </script>
       </body>
       </html>
     `
 
     printWindow.document.write(htmlContent)
     printWindow.document.close()
+
+    // L'impression est déclenchée depuis la fenêtre parente, pas par un
+    // <script> inline dans le document généré : celui-ci hérite de la CSP
+    // du site (script-src 'self') et serait bloqué.
+    const print = () => {
+      printWindow.focus()
+      printWindow.print()
+    }
+    if (printWindow.document.readyState === 'complete') {
+      print()
+    } else {
+      printWindow.addEventListener('load', print, { once: true })
+    }
   }
 
   return (

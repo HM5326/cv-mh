@@ -7,9 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node test/contact.test.mjs"
   },
   "dependencies": {
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.2",
     "canvas-confetti": "^1.9.4",
     "gsap": "^3.12.5",
     "lucide-react": "^0.469.0",
