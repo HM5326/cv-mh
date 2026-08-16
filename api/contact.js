@@ -8,6 +8,7 @@
 //   ALLOWED_ORIGINS  — optionnel, origines externes autorisées (virgules)
 
 import { escapeHtml } from '../lib/escapeHtml.js'
+import { checkRateLimit } from '../lib/rateLimit.js'
 
 const MAX = { name: 120, contact: 200, message: 5000 }
 
@@ -43,7 +44,9 @@ function isOriginAllowed(req) {
     .includes(origin)
 }
 
-export default async function handler(req, res) {
+// Le 3e paramètre est un point d'injection pour les tests : Vercel n'appelle
+// jamais le handler qu'avec (req, res), il est donc inerte en production.
+export default async function handler(req, res, testLimiters = null) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST')
     return res.status(405).json({ error: 'Méthode non autorisée.' })
@@ -59,6 +62,24 @@ export default async function handler(req, res) {
   if (!isOriginAllowed(req)) {
     console.warn('Origine refusée', { origin: req.headers.origin, ip: clientIp(req) })
     return res.status(403).json({ error: 'Origine non autorisée.' })
+  }
+
+  // Avant toute autre chose : chaque envoi consomme un crédit Resend
+  // (100/jour en offre gratuite). Sans plafond, un script épuise le quota
+  // en une minute et coupe le seul canal de contact du site.
+  // Volontairement placé avant la validation : un attaquant qui envoie du
+  // contenu invalide en boucle doit être freiné lui aussi.
+  const ip = clientIp(req)
+  const limit = await checkRateLimit(ip, testLimiters)
+  if (!limit.allowed) {
+    console.warn('Débit dépassé', { ip, portee: limit.scope })
+    res.setHeader('Retry-After', String(limit.retryAfter))
+    return res.status(429).json({
+      error:
+        limit.scope === 'global'
+          ? 'Le formulaire reçoit trop de messages en ce moment. Réessaie dans une heure ou écris-moi directement.'
+          : 'Trop de messages envoyés depuis cette connexion. Réessaie dans quelques minutes.'
+    })
   }
 
   const apiKey = process.env.RESEND_API_KEY
