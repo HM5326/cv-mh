@@ -65,21 +65,35 @@ export default function Hero({ onOpenResumeModal, onOpenContactModal }) {
       <div className="relative z-10 max-w-5xl mx-auto w-full my-auto flex flex-col items-center text-center">
         
         {/* Avatar Badge */}
-        <div ref={avatarRef} className="relative mb-8 group">
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-coral via-coral-light to-white opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-pulse-glow" />
-          <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full bg-ink-soft border-2 border-coral/80 p-1 flex items-center justify-center shadow-2xl overflow-hidden">
-            <div className="w-full h-full rounded-full bg-gradient-to-b from-ink-soft to-ink-deep flex flex-col items-center justify-center relative">
-              <span className="font-extrabold font-sans text-3xl md:text-4xl text-white tracking-widest">
-                MH
-              </span>
-              <span className="text-[10px] font-mono text-coral uppercase tracking-widest mt-1">
-                Ingénieur & Codeur
-              </span>
-              <div className="absolute bottom-2 px-2 py-0.5 rounded-full bg-coral/20 border border-coral/40 text-[9px] font-mono text-coral-light flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-ping" />
-                Vibe Coding Active
+        <div ref={avatarRef} className="relative mb-6 md:mb-8 flex flex-col items-center gap-3 group">
+
+          {/* Médaillon */}
+          <div className="relative">
+            <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-coral via-coral-light to-white opacity-70 blur-md group-hover:opacity-100 transition duration-500 animate-pulse-glow" />
+            <div className="relative w-36 h-36 sm:w-40 sm:h-40 md:w-44 md:h-44 rounded-full bg-ink-soft border-2 border-coral/80 p-1 shadow-2xl overflow-hidden">
+              <div className="w-full h-full rounded-full bg-gradient-to-b from-ink-soft to-ink-deep flex flex-col items-center justify-center text-center px-2 md:px-3">
+                <span className="font-extrabold font-sans text-3xl sm:text-4xl text-white tracking-widest leading-none">
+                  MH
+                </span>
+                {/* tracking-wide et non -widest : à 10px sur 18 caractères,
+                    -widest depassait le diametre et cassait la ligne. */}
+                <span className="mt-1.5 text-[9px] sm:text-[10px] font-mono text-coral uppercase tracking-wide leading-tight whitespace-nowrap">
+                  Ingénieur & Codeur
+                </span>
               </div>
             </div>
+          </div>
+
+          {/* Statut — deliberement SOUS le medaillon : a l'interieur, la corde
+              du cercle a cette hauteur ne fait que 82px (mobile) et 94px
+              (desktop) alors que la pastille en demande 125. overflow-hidden
+              la rognait des deux cotes, sur toutes les tailles d'ecran. */}
+          <div className="px-3 py-1 rounded-full bg-coral/15 border border-coral/40 text-[10px] font-mono text-coral-light flex items-center gap-2 whitespace-nowrap">
+            <span className="relative flex h-1.5 w-1.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
+            </span>
+            Vibe Coding Active
           </div>
         </div>
 
